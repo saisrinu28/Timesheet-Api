@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_38fae877_f274_455f_8ffe_d29d5eea5d17_Input_Variables_projectsResponseVar = Any
+

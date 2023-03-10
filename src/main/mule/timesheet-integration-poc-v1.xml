@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:sap="http://www.mulesoft.org/schema/mule/sap" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sap http://www.mulesoft.org/schema/mule/sap/current/mule-sap.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="16d87d2e-4096-4b75-9965-532fd053dc38" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="f7506065-4738-455c-a62c-f047e474a27f" >
+		<http:request-connection host="sasol-dev.sciforma.net" protocol="HTTPS"/>
+	</http:request-config>
+
+	<sap:sap-config name="SAP_Config" doc:name="SAP Config" doc:id="d2cf4bb3-0406-470d-9bf4-4b662c964294" >
+		<sap:simple-connection-provider-connection username="SCIFORMA_RFC" password="Welcomesaso!12" systemNumber="00" client="200" applicationServerHost="zaprksapap189.scd.sasol.com" />
+	</sap:sap-config>
+
+	<sub-flow name="resource-sub-flow" doc:id="71d271e3-91ef-4f7e-bfc1-762d01a04b38" >
+		<flow-ref doc:name="Flow Reference" doc:id="c1262ac5-783d-4925-8b6d-c1561f9ffd3d" name="resource-token-sub-flow" />
+		<http:request method="GET" doc:name="resources" doc:id="ed159af3-682c-4594-acb9-8e61c0353230" config-ref="HTTP_Request_configuration" path="/sciforma/rest/resources" target="resourcesResponseVar">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.oAuthTokenVar."access_token"
+}]]]></http:headers>
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"offset" : "0",
+	"limit" : "100",
+	"fields" : "Control No",
+	"status" : "ACTIVE"
+}]]]></http:query-params>
+		</http:request>
+	</sub-flow>
+	<flow name="request-tokenFlow1" doc:id="759f85e4-57c5-4bb6-a6f8-203e08c34ee1" >
+		<http:listener doc:name="Listener" doc:id="d56f9de7-ad6d-4a7b-a1a6-e20aaf87f03e" config-ref="HTTP_Listener_config" path="/projects"/>
+		<flow-ref doc:name="Flow Reference" doc:id="d3964d46-93ba-4687-b7a2-04ccf5f5a596" name="resource-sub-flow"/>
+	</flow>
+	<sub-flow name="projects-subflow" doc:id="9def91db-90a5-4046-ac6e-fbde101d9947" >
+		<flow-ref doc:name="project-token-sub-flow1" doc:id="c0e6f3ca-4ec3-4276-826d-cb49aa47f71a" name="project-token-sub-flow1" />
+		<http:request method="GET" doc:name="projects" doc:id="bd4ab2d8-0d11-4b4c-9b86-67df360f8703" config-ref="HTTP_Request_configuration" path="/sciforma/rest/projects?" target="projectsResponseVar" >
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.oAuthTokenVar."access_token"
+}]]]></http:headers>
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"offset" : "0",
+	"limit" : "100",
+	"fields" : "Active,devex_wbs_number,capex_wbs_number",
+	"devex_wbs_number" : payload,
+	"version" : "WORKING",
+	"Active" : "true"
+}]]]></http:query-params>
+		</http:request>
+	</sub-flow>
+	<sub-flow name="resource-token-sub-flow" doc:id="38fae877-f274-455f-8ffe-d29d5eea5d17" >
+		<ee:transform doc:name="Transform Message" doc:id="e07714df-2393-48e7-ad03-dc138d3a7085">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{
+	grant_type: "client_credentials",
+	client_id: "ExQVtnF5fNE5Vw_u.sasol-dev.sciforma.net",
+	client_secret: "UBDx8kP46I1R78PK5~nRcDw6WT",
+	scope: "resources:read"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="POST" doc:name="Request" doc:id="f542642a-7b84-4d66-8027-db63737891ca" config-ref="HTTP_Request_configuration" path="/oauth2/token" target="oAuthTokenVar">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+	</sub-flow>
+	<flow name="request-tokenFlow" doc:id="c889f759-151b-490d-aa06-d6466debb616" >
+		<http:listener doc:name="Listener" doc:id="3e0ace44-d238-4e08-b0d0-e436fb3c7a5f" config-ref="HTTP_Listener_config" path="/token"/>
+		<flow-ref doc:name="resource-sub-flow" doc:id="bb16ba1a-fa1a-4c03-9387-32b4d1ae771c" name="resource-sub-flow" />
+<flow-ref doc:name="sap-subflow" doc:id="39c1d492-1d13-4213-a80d-755afade0006" name="sap-time-sheet"/>
+				<ee:transform doc:name="Transform Message" doc:id="40f62464-fbd6-42de-882f-9add31e3708a" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="wbsNumbers" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.sapResponseVar.ZBAPI_TIMESHEET_DATA.tables.TIMESHEET_DATA.*row.WBS_NUMBER]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="663c8307-cb19-48fe-9152-069d8797b7d9" collection="#[vars.wbsNumbers]">
+			<flow-ref doc:name="projects-subflow" doc:id="5f344056-5e76-443f-aa95-990f0eb12815" name="projects-subflow" />
+		</foreach>
+		<logger level="INFO" doc:name="Logger" doc:id="4f313833-a2fb-43e1-8909-4a4e9186d73a" message="end"/>
+	</flow>
+	<sub-flow name="project-token-sub-flow1" doc:id="fbf819c6-88fc-41eb-95da-cbd66dd78453">
+		<ee:transform doc:name="Transform Message" doc:id="722710ca-7a45-4148-b64e-0383d44692c6">
+			<ee:message>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="tokenRequest" ><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{
+	grant_type: "client_credentials",
+	client_id: "ExQVtnF5fNE5Vw_u.sasol-dev.sciforma.net",
+	client_secret: "UBDx8kP46I1R78PK5~nRcDw6WT",
+	scope: "projects:read"
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<http:request method="POST" doc:name="Request" doc:id="eeac50e3-a92f-41c9-8a8c-3d12c1bf42c2" config-ref="HTTP_Request_configuration" path="/oauth2/token" target="oAuthTokenVar">
+			<http:body ><![CDATA[#[vars.tokenRequest]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+	</sub-flow>
+	<sub-flow name="sap-time-sheet" doc:id="c1b13278-f29d-467f-9de2-44eccc31ed61" >
+		<ee:transform doc:name="Transform Message" doc:id="6886dbf9-a820-4472-be57-f654cf75f17a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::core::Strings
+output application/xml
+---
+{
+	ZBAPI_TIMESHEET_DATA: {
+		"import": {
+			CONTROL_NUMBER: "405",
+			END_DATE: "2023-03-01",
+			START_DATE: "2022-01-01"
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<sap:sync-rfc key="ZBAPI_TIMESSHEET_DATA" doc:name="Synchronous Remote Function Call" doc:id="68c8db8d-a40b-49a4-9d73-b912f2320733" config-ref="SAP_Config" target="sapResponseVar" />
+	</sub-flow>
+</mule>

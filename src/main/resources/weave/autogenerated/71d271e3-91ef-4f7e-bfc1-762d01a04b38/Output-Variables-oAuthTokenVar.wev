@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_71d271e3_91ef_4f7e_bfc1_762d01a04b38_Output_Variables_oAuthTokenVar = Any
+
